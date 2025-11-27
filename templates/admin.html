@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Management | ScopeScan</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#3b82f6',
+              secondary: '#10b981',
+              medical: {
+                50: '#f0f9ff',
+                100: '#e0f2fe',
+                500: '#0ea5e9',
+                900: '#0c4a6e'
+              }
+            }
+          }
+        }
+      }
+    </script>
+</head>
+<body class="bg-gray-50 font-sans">
+    <div class="flex h-screen overflow-hidden">
+      <div class="sidebar bg-white w-64 md:w-72 border-r border-gray-200 flex flex-col">
+        <div class="p-4 border-b border-gray-200 flex items-center space-x-10">
+          <div class="bg-medical-500 p-2 rounded-lg">
+            <i data-feather="activity" class="text-white"></i>
+          </div>
+          <h1 class="text-xl font-bold text-gray-800">ScopeScan</h1>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+          <!-- <a href="index.html" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+            <i data-feather="home"></i>
+            <span>Dashboard</span>
+          </a> -->
+          <a href="/admin" class="flex items-center space-x-3 p-3 rounded-lg bg-medical-100 text-medical-900">
+            <i data-feather="users"></i>
+            <span>Account Management</span>
+          </a>
+          <a href="/endoscopy" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+            <i data-feather="camera"></i>
+            <span>Endoscopy Images</span>
+          </a>
+          <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+            <i data-feather="file-text"></i>
+            <span>Reports</span>
+          </a>
+          <div class="pt-4">
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">ADMINISTRATION</h3>
+            <a href="/newaccount" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+              <i data-feather="user-plus"></i>
+              <span>Create New Account</span>
+            </a>
+            <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+              <i data-feather="settings"></i>
+              <span>Settings</span>
+            </a>
+          </div>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-200">
+            <div class="flex items-center space-x-16">
+                <img src="http://static.photos/medical/200x200/1" class="w-10 h-10 rounded-full" alt="User">
+                <div>
+                    <p class="font-medium">Admin</p>
+                </div>
+                <a href="/logout"><i data-feather="log-out" class="text-gray-500"></i></a>
+            </div>
+        </div>
+      </div>
+      
+      <div class="flex-1 overflow-auto">
+        <header class="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+          <h2 class="text-xl font-semibold text-gray-800">Account Management</h2>
+          <div class="flex items-center space-x-4">
+            <!-- <button class="p-2 rounded-full hover:bg-gray-100">
+              <i data-feather="bell"></i>
+            </button> -->
+            <div class="relative">
+              <input type="text" id="searchInput" placeholder="Search accounts..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent">
+              <i data-feather="search" class="absolute left-3 top-2.5 text-gray-400"></i>
+            </div>
+          </div>
+        </header>
+        
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+            <div class="mb-4 p-4 rounded-md border-l-4 
+                        {% if category == 'error' %} 
+                            bg-red-50 border-red-500 text-red-700 
+                        {% elif category == 'success' %} 
+                            bg-green-50 border-green-500 text-green-700 
+                        {% elif category == 'warning' %} 
+                            bg-yellow-50 border-yellow-500 text-yellow-700 
+                        {% else %} 
+                            bg-blue-50 border-blue-500 text-blue-700 
+                        {% endif %}">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        {% if category == 'error' %}
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                            </svg>
+                        {% elif category == 'success' %}
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                        {% elif category == 'warning' %}
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                            </svg>
+                        {% else %}
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                            </svg>
+                        {% endif %}
+                        <p>{{ message }}</p>
+                    </div>
+                    <button type="button" class="text-gray-500 hover:text-gray-700 focus:outline-none" onclick="this.parentElement.parentElement.remove()">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        {% endfor %}
+
+        <main class="p-6">
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 class="font-medium">All Medical Accounts</h3>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead class="bg-gray-50">
+                  <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="px-6 py-3">User</th>
+                    <th class="px-6 py-3">Email</th>
+                    <th class="px-6 py-3">Password</th>
+                    <th class="px-6 py-3">Role</th>
+                    <th class="px-6 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200" id="userTableBody">
+                  {% for user in users %}
+                  <tr data-email="{{ user.email.lower() }}">
+                    <td class="px-6 py-4">
+                      <div class="flex items-center space-x-3">
+                        <img src="http://static.photos/medical/200x200/{{ (loop.index0 % 5) + 1 }}" class="w-9 h-9 rounded-full" alt="User">
+                        <div>
+                          <p class="font-medium">{{ user.name }}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500">{{ user.email }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">{{ user.password }}</td>
+                    <td class="px-6 py-4">
+                      <span class="px-2 py-1 {{ 'bg-yellow-200 text-red-600' if user.admin else 'bg-medical-100 text-medical-800' }} text-xs rounded-full">{{ 'Administrator' if user.admin else 'Doctor' }}</span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        {% if not user.admin %}
+                      <div class="flex justify-end space-x-2">
+                        <button onclick="openEditModal({{ user.id }}, '{{ user.name }}', '{{ user.email }}', '{{ user.password }}', '{{ 'admin' if user.admin else 'doctor' }}')" class="p-2 rounded-lg hover:bg-gray-100">
+                          <i data-feather="edit" class="w-4 h-4 text-gray-600"></i>
+                        </button>
+                        <button onclick="openDeleteModal({{ user.id }}, '{{ user.name }}')" class="p-2 rounded-lg hover:bg-red-100">
+                          <i data-feather="trash-2" class="w-4 h-4 text-red-600"></i>
+                        </button>
+                        <button class="p-2 rounded-lg hover:bg-gray-100">
+                          <i data-feather="more-vertical" class="w-4 h-4 text-gray-600"></i>
+                        </button>
+                      </div>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  {% if not users %}
+                  <tr id="noResultsRow">
+                    <td colspan="5" class="px-6 py-4 text-center text-gray-500">No accounts found.</td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+    
+    <div id="editModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+      <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-left">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Account</h3>
+          <form id="editForm" method="POST" action="">
+            <input type="hidden" id="editUserId" name="user_id">
+            <div class="mb-4">
+              <label for="editName" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <input type="text" id="editName" name="name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent" required>
+            </div>
+            <div class="mb-4">
+              <label for="editEmail" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+              <input type="email" id="editEmail" name="email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent" required>
+            </div>
+            <div class="mb-4">
+              <label for="editPassword" class="block text-sm font-medium text-gray-700 mb-1">New Password (leave blank to keep current)</label>
+              <input type="password" id="editPassword" name="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent">
+            </div>
+            <div class="mb-6">
+              <label for="editRole" class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+              <select id="editRole" name="role" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent" required>
+                <option value="doctor">Doctor</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </div>
+            <div class="flex justify-end space-x-3">
+              <button type="button" onclick="closeEditModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Cancel</button>
+              <button type="submit" class="px-4 py-2 bg-medical-500 hover:bg-medical-600 text-white rounded-lg text-sm font-medium">Update Account</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div id="deleteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+      <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-left">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Confirm Delete</h3>
+          <p class="text-sm text-gray-600 mb-4">Are you sure you want to delete <strong id="deleteUserName"></strong>? This action cannot be undone.</p>
+          <form id="deleteForm" method="POST" action="">
+            <input type="hidden" id="deleteUserId" name="user_id">
+            <div class="flex justify-end space-x-3">
+              <button type="button" onclick="closeDeleteModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Cancel</button>
+              <button type="submit" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium">Delete Account</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      feather.replace();
+
+      function openEditModal(id, name, email, password, role) {
+        document.getElementById('editUserId').value = id;
+        document.getElementById('editName').value = name;
+        document.getElementById('editEmail').value = email;
+        document.getElementById('editPassword').value = '';
+        document.getElementById('editRole').value = role;
+        document.getElementById('editForm').action = `/update/${id}`;
+        document.getElementById('editModal').classList.remove('hidden');
+      }
+
+      function closeEditModal() {
+        document.getElementById('editModal').classList.add('hidden');
+      }
+
+      function openDeleteModal(id, name) {
+        document.getElementById('deleteUserId').value = id;
+        document.getElementById('deleteUserName').textContent = name;
+        document.getElementById('deleteForm').action = `/delete/${id}`;
+        document.getElementById('deleteModal').classList.remove('hidden');
+      }
+
+      function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const tableBody = document.getElementById('userTableBody');
+        const rows = tableBody.querySelectorAll('tr[data-email]');
+        let noResultsRow = tableBody.querySelector('#noResultsRow');
+
+        searchInput.addEventListener('input', function() {
+          const searchTerm = this.value.toLowerCase().trim();
+          let visibleRows = 0;
+
+          rows.forEach(row => {
+            const email = row.getAttribute('data-email');
+            if (email.includes(searchTerm)) {
+              row.style.display = '';
+              visibleRows++;
+            } else {
+              row.style.display = 'none';
+            }
+          });
+
+          if (!noResultsRow) {
+            noResultsRow = document.createElement('tr');
+            noResultsRow.id = 'noResultsRow';
+            noResultsRow.innerHTML = '<td colspan="5" class="px-6 py-4 text-center text-gray-500">No accounts found matching the search.</td>';
+            tableBody.appendChild(noResultsRow);
+          }
+
+          if (visibleRows === 0 && searchTerm !== '') {
+            noResultsRow.style.display = '';
+            noResultsRow.querySelector('td').textContent = 'No accounts found matching the search.';
+          } else {
+            noResultsRow.style.display = 'none';
+          }
+        });
+      });
+
+      window.onclick = function(event) {
+        const editModal = document.getElementById('editModal');
+        const deleteModal = document.getElementById('deleteModal');
+        if (event.target == editModal) {
+          closeEditModal();
+        }
+        if (event.target == deleteModal) {
+          closeDeleteModal();
+        }
+      }
+    </script>
+</body>
+</html>

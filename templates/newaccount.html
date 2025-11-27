@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create New Account | ScopeScan</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#3b82f6',
+              secondary: '#10b981',
+              medical: {
+                50: '#f0f9ff',
+                100: '#e0f2fe',
+                500: '#0ea5e9',
+                900: '#0c4a6e'
+              }
+            }
+          }
+        }
+      }
+    </script>
+</head>
+<body class="bg-gray-50 font-sans">
+    <div class="flex h-screen overflow-hidden">
+      <div class="sidebar bg-white w-64 md:w-72 border-r border-gray-200 flex flex-col">
+        <div class="p-4 border-b border-gray-200 flex items-center space-x-10">
+          <div class="bg-medical-500 p-2 rounded-lg">
+            <i data-feather="activity" class="text-white"></i>
+          </div>
+          <h1 class="text-xl font-bold text-gray-800">ScopeScan</h1>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+          <!-- <a href="index.html" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+            <i data-feather="home"></i>
+            <span>Dashboard</span>
+          </a> -->
+          <a href="/admin" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+            <i data-feather="users"></i>
+            <span>Account Management</span>
+          </a>
+          <a href="/endoscopy" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+            <i data-feather="camera"></i>
+            <span>Endoscopy Images</span>
+          </a>
+          <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+            <i data-feather="file-text"></i>
+            <span>Reports</span>
+          </a>
+          <div class="pt-4">
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">ADMINISTRATION</h3>
+            <a href="/newaccount" class="flex items-center space-x-3 p-3 rounded-lg bg-medical-100 text-medical-900">
+              <i data-feather="user-plus"></i>
+              <span>Create New Account</span>
+            </a>
+            <a href="#" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 text-gray-700">
+                <i data-feather="settings"></i>
+                <span>Settings</span>
+            </a>
+          </div>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-200">
+            <div class="flex items-center space-x-16">
+                <img src="http://static.photos/medical/200x200/1" class="w-10 h-10 rounded-full" alt="User">
+                <div>
+                    <p class="font-medium">Admin</p>
+                </div>
+                <a href="/logout"><i data-feather="log-out" class="text-gray-500"></i></a>
+            </div>
+        </div>
+      </div>
+      
+      <div class="flex-1 overflow-auto">
+        <header class="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+          <h2 class="text-xl font-semibold text-gray-800">Create New Account</h2>
+          <div class="flex items-center space-x-4">
+            <button class="p-2 rounded-full hover:bg-gray-100 pointer-events-none">
+              <i data-feather="user"></i>
+            </button>
+            <!-- <div class="relative">
+              <input type="text" placeholder="Search..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent">
+              <i data-feather="search" class="absolute left-3 top-2.5 text-gray-400"></i>
+            </div> -->
+          </div>
+        </header>
+
+        
+        <main class="p-6">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium text-gray-800 mb-1">Account Information</h3>
+                    <p class="text-sm text-gray-500">Fill in the details below to create a new medical account</p>
+                </div>
+                
+                {% for category, message in get_flashed_messages(with_categories=true) %}
+                    <div class="mb-4 p-4 rounded-md border-l-4 
+                                {% if category == 'error' %} 
+                                    bg-red-50 border-red-500 text-red-700 
+                                {% elif category == 'success' %} 
+                                    bg-green-50 border-green-500 text-green-700 
+                                {% elif category == 'warning' %} 
+                                    bg-yellow-50 border-yellow-500 text-yellow-700 
+                                {% else %} 
+                                    bg-blue-50 border-blue-500 text-blue-700 
+                                {% endif %}">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center">
+                                {% if category == 'error' %}
+                                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                                    </svg>
+                                {% elif category == 'success' %}
+                                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                    </svg>
+                                {% elif category == 'warning' %}
+                                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                    </svg>
+                                {% else %}
+                                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                    </svg>
+                                {% endif %}
+                                <p>{{ message }}</p>
+                            </div>
+                            <button type="button" class="text-gray-500 hover:text-gray-700 focus:outline-none" onclick="this.parentElement.parentElement.remove()">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            
+            <form class="grid grid-cols-1 md:grid-cols-2 gap-6" method="POST">
+              <div>
+                <label for="fullName" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <input type="text" id="fullName" name="fullName" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent" required>
+              </div>
+              
+              <!-- <div>
+                <label for="lastName" class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                <input type="text" id="lastName" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent">
+              </div> -->
+              
+              <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                <input type="email" id="email" name="email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent" required>
+              </div>
+              
+              <!-- <div>
+                <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                <input type="tel" id="phone" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent">
+              </div> -->
+              
+              <div>
+                  <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <div class="relative rounded-md shadow-sm">
+                      <input type="password" id="password" name="password" 
+                              class="input-field block w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent" required>
+                      <div class="absolute inset-y-0 right-0 pr-3 w-7 flex items-center cursor-pointer" onclick="togglePassword()">
+                          <i data-feather="eye" class="text-medical-400" id="eye-icon"></i>
+                      </div>
+                  </div>
+              </div>
+              
+              <div>
+                <label for="role" class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select id="role" name="role" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent" required>
+                  <option value="doctor">Doctor</option>
+                  <option value="admin">Administrator</option>
+                </select>
+              </div>
+              
+              <!-- <div>
+                <label for="specialty" class="block text-sm font-medium text-gray-700 mb-1">Specialty</label>
+                <select id="specialty" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent">
+                  <option value="">Select a specialty</option>
+                  <option value="gastroenterologist">Gastroenterologist</option>
+                  <option value="radiologist">Radiologist</option>
+                  <option value="surgeon">Surgeon</option>
+                  <option value="pathologist">Pathologist</option>
+                </select>
+              </div> -->
+              
+              <!-- <div class="md:col-span-2">
+                <label for="address" class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <input type="text" id="address" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent">
+              </div> -->
+              
+              
+              <!-- <div>
+                <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                <div class="relative">
+                  <input type="password" id="confirmPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent">
+                  <button type="button" class="absolute right-3 top-2.5 text-gray-400">
+                    <i data-feather="eye" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div> -->
+              
+              <div class="md:col-span-2">
+                <label class="inline-flex items-center">
+                  <input type="checkbox" name="send_welcome" class="rounded border-gray-300 text-medical-500 focus:ring-medical-500">
+                  <span class="ml-2 text-sm text-gray-700">Send welcome email with account details</span>
+                </label>
+              </div>
+              
+              <div class="md:col-span-2 border-t border-gray-200 pt-4 flex justify-end space-x-3">
+                <!-- <button type="button" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Cancel</button> -->
+                <button type="submit" class="px-4 py-2 bg-medical-500 hover:bg-medical-600 text-white rounded-lg text-sm font-medium">Create Account</button>
+              </div>
+            </form>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <script>
+      feather.replace();
+
+      function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const eyeIcon = document.getElementById('eye-icon');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.setAttribute('data-feather', 'eye-off');
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.setAttribute('data-feather', 'eye');
+            }
+            feather.replace();
+        }
+    </script>
+</body>
+</html>

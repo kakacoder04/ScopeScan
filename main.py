@@ -5,20 +5,22 @@ from functools import wraps
 from datetime import datetime
 from werkzeug.utils import secure_filename
 import os
-from tensorflow.keras.models import load_model
-from keras.preprocessing import image
-import numpy as np
+from ultralytics import YOLO
+from PIL import Image
 import io
+import numpy as np
+import cv2
+import base64
 
 # --------------------------------------------------------------------------------------
 app = Flask(__name__)
-app.secret_key = 'kakadziuhtrangquadi' 
+app.secret_key = 'kakadziuhtrangquadi'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/endoscan'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # --------------------------------------------------------------------------------------
-model = load_model("./model/model.h5")
+model = YOLO("./model/best_50_epochs.pt")
 
 # --------------------------------------------------------------------------------------
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -46,7 +48,6 @@ class Patient(db.Model):
 
 # --------------------------------------------------------------------------------------
 with app.app_context():
-    # db.drop_all()
     db.create_all()
 
     if not Users.query.filter_by(email="kakawiner04@gmail.com").first():
@@ -178,47 +179,167 @@ def analyze_image():
         return jsonify({'error': 'Invalid file type'}), 400
     
     try:
-        image_file.seek(0) 
+        image_file.seek(0)
         img_bytes = io.BytesIO(image_file.read())
-        img = image.load_img(img_bytes, target_size=(224, 224))
-        imag = image.img_to_array(img)
-        imagina = np.expand_dims(imag, axis=0) 
-        ypred = model.predict(imagina)
+        img = Image.open(img_bytes)
         
-        confidence = np.max(ypred[0]) * 100
-        a = np.argmax(ypred, -1)
+        if img.size[0] > 640:  
+            img = img.resize((640, int(640 * img.size[1] / img.size[0])))
         
-        if a == 0:
-            op = "Normal"
-        elif a == 1:
-            op = "Ulcerative Colitis"
-        elif a == 2:
-            op = "Polyp"
+        img_array = np.array(img)
+        if len(img_array.shape) == 3 and img_array.shape[2] == 4:
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_RGBA2RGB)
+        elif len(img_array.shape) == 3 and img_array.shape[2] == 3:
+            pass
         else:
-            op = "Esophagitis"
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGB)
+        
+        results = model.predict(img, verbose=False, conf=0.25, imgsz=640) 
+        
+        annotated_img = img_array.copy()
+        
+        if len(results) == 0 or results[0].boxes is None or len(results[0].boxes) == 0:
+            op = "Normal"
+            confidence = 100.0
+            boxes_list = []
+        else:
+            boxes = results[0].boxes
+            confidences = boxes.conf.cpu().numpy()
+            classes = boxes.cls.cpu().numpy()
+            
+            class_names = ["Normal", "Ulcerative Colitis", "Polyp", "Esophagitis"]
+            
+            max_conf_idx = np.argmax(confidences)
+            op = class_names[int(classes[max_conf_idx])] if int(classes[max_conf_idx]) < len(class_names) else "Unknown"
+            confidence = confidences[max_conf_idx] * 100
+            
+            boxes_list = []
+            for i in range(len(boxes)):
+                box = boxes.xyxy[i].cpu().numpy().astype(int)
+                class_id = int(classes[i])
+                class_name = class_names[class_id] if class_id < len(class_names) else "Unknown"
+                
+                x1, y1, x2, y2 = box
+                cv2.rectangle(annotated_img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                
+                label = f"{class_name}: {confidences[i]*100:.1f}%"
+                cv2.putText(annotated_img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                
+                boxes_list.append({
+                    'x1': float(box[0]),
+                    'y1': float(box[1]),
+                    'x2': float(box[2]),
+                    'y2': float(box[3]),
+                    'confidence': float(confidences[i] * 100),
+                    'class': class_name
+                })
+        
+        _, buffer = cv2.imencode('.jpg', annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        annotated_base64 = base64.b64encode(buffer).decode('utf-8')
         
         descriptions = {
             "Normal": "The image shows normal esophageal tissue with no signs of abnormality.",
             "Ulcerative Colitis": "Ulcerative colitis is an inflammatory bowel disease that causes long-lasting inflammation and ulcers in the digestive tract.",
             "Polyp": "A polyp is an abnormal growth of tissue projecting from a mucous membrane. In the colon, polyps can be precancerous.",
-            "Esophagitis": "Esophagitis is inflammation of the esophagus, often caused by acid reflux or infection."
+            "Esophagitis": "Esophagitis is inflammation of the esophagus, often caused by acid reflux or infection.",
+            "Unknown": "Detection result is unclear. Please consult a specialist."
         }
         
         treatments = {
             "Normal": "No treatment required. Regular check-ups recommended.",
             "Ulcerative Colitis": "Anti-inflammatory drugs, immunosuppressants, or biologics. Surgery in severe cases.",
             "Polyp": "Polypectomy during colonoscopy. Follow-up screenings to monitor for recurrence.",
-            "Esophagitis": "Antacids, proton pump inhibitors, or dietary changes to reduce acid reflux."
+            "Esophagitis": "Antacids, proton pump inhibitors, or dietary changes to reduce acid reflux.",
+            "Unknown": "Further medical evaluation required."
         }
         
         return jsonify({
             'condition': op,
             'confidence': f"{confidence:.2f}%",
             'description': descriptions.get(op, "No description available."),
-            'treatment': treatments.get(op, "No treatment recommendation available.")
+            'treatment': treatments.get(op, "No treatment recommendation available."),
+            'boxes': boxes_list,
+            'annotated_image': f"data:image/jpeg;base64,{annotated_base64}"
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# --------------------------------------------------------------------------------------
+@app.route('/analyze_video', methods=['POST'])
+@login_required
+def analyze_video():
+    if 'image_file' not in request.files:
+        return jsonify({'error': 'No image file provided'}), 400
+    
+    image_file = request.files['image_file']
+    if image_file.filename == '':
+        return jsonify({'error': 'No image selected'}), 400
+    
+    if not allowed_file(image_file.filename):
+        return jsonify({'error': 'Invalid file type'}), 400
+    
+    try:
+        image_file.seek(0)
+        img_bytes = io.BytesIO(image_file.read())
+        img = Image.open(img_bytes)
+        
+        if img.size[0] > 320:  
+            img = img.resize((320, int(320 * img.size[1] / img.size[0])))
+        
+        img_array = np.array(img)
+        if len(img_array.shape) == 3 and img_array.shape[2] == 4:
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_RGBA2RGB)
+        elif len(img_array.shape) == 3 and img_array.shape[2] == 3:
+            pass
+        else:
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGB)
+        
+        results = model.predict(img, verbose=False, conf=0.3, imgsz=320)  
+        
+        if len(results) == 0 or results[0].boxes is None or len(results[0].boxes) == 0:
+            op = "Normal"
+            confidence = 100.0
+            boxes_list = []
+        else:
+            boxes = results[0].boxes
+            confidences = boxes.conf.cpu().numpy()
+            classes = boxes.cls.cpu().numpy()
+            
+            class_names = ["Normal", "Ulcerative Colitis", "Polyp", "Esophagitis"]
+            
+            max_conf_idx = np.argmax(confidences)
+            op = class_names[int(classes[max_conf_idx])] if int(classes[max_conf_idx]) < len(class_names) else "Unknown"
+            confidence = confidences[max_conf_idx] * 100
+            
+            boxes_list = []
+            for i in range(len(boxes)):
+                box = boxes.xyxy[i].cpu().numpy().astype(int)
+                class_id = int(classes[i])
+                class_name = class_names[class_id] if class_id < len(class_names) else "Unknown"
+                
+                boxes_list.append({
+                    'x1': float(box[0]),
+                    'y1': float(box[1]),
+                    'x2': float(box[2]),
+                    'y2': float(box[3]),
+                    'confidence': float(confidences[i] * 100),
+                    'class': class_name
+                })
+        
+        return jsonify({
+            'condition': op,
+            'confidence': f"{confidence:.2f}%",
+            'boxes': boxes_list
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# --------------------------------------------------------------------------------------
+@app.route('/video', methods=['GET', 'POST'])
+@login_required
+def video():
+    user = Users.query.get(session['user_id'])
+    return render_template('video.html', user=user)
 
 # --------------------------------------------------------------------------------------
 @app.route('/admin', methods=['GET', 'POST'])
@@ -256,8 +377,68 @@ def newaccount():
                 subject='Welcome to ScopeScan!',
                 sender=app.config['MAIL_USERNAME'],
                 recipients=[email],
-                body=f'Dear {name},\n\nYour account has been created successfully!\n\nEmail: {email}\nPassword: {password}\n\nPlease use these credentials to log in to ScopeScan.\n\nBest regards,\nScopeScan Team',
-                html=f'<h2>Welcome to ScopeScan!</h2><p>Dear <strong>{name}</strong>,</p><p>Your account has been created successfully!</p><ul><li><strong>Email:</strong> {email}</li><li><strong>Password:</strong> {password}</li></ul><p>Please use these credentials to log in to ScopeScan.</p><p>Best regards,<br>ScopeScan Team</p>'
+                body=f'Dear {name},\n\nYour account has been created successfully!\n\nEmail: {email}\nPassword: {password}\nRole: {role}\n\nPlease use these credentials to log in to ScopeScan.\n\nBest regards,\nScopeScan Team',
+                html=f'''
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Welcome to ScopeScan!</title>
+                </head>
+                <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4; color: #333333;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f4f4;">
+                        <tr>
+                            <td style="padding: 20px 0;">
+                                <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="600" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                                    <!-- Header -->
+                                    <tr>
+                                        <td style="background-color: #007bff; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">Welcome to ScopeScan!</h1>
+                                        </td>
+                                    </tr>
+                                    <!-- Content -->
+                                    <tr>
+                                        <td style="padding: 40px 30px;">
+                                            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5;">Dear <strong>{name}</strong>,</p>
+                                            <p style="margin: 0 0 30px; font-size: 16px; line-height: 1.5;">Your account has been created successfully!</p>
+                                            
+                                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width: 100%; margin-bottom: 30px;">
+                                                <tr>
+                                                    <td style="padding: 10px 0; border-bottom: 1px solid #e0e0e0;">
+                                                        <strong style="color: #007bff;">Email:</strong> {email}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 10px 0; border-bottom: 1px solid #e0e0e0;">
+                                                        <strong style="color: #007bff;">Password:</strong> {password}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 10px 0;">
+                                                        <strong style="color: #007bff;">Role:</strong> {role}
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                            
+                                            <p style="margin: 0 0 30px; font-size: 16px; line-height: 1.5;">Please use these credentials to log in to ScopeScan.</p>
+                                            
+                                        </td>
+                                    </tr>
+                                    <!-- Footer -->
+                                    <tr>
+                                        <td style="background-color: #f8f9fa; padding: 20px 30px; text-align: center; border-radius: 0 0 8px 8px; font-size: 14px; color: #6c757d;">
+                                            <p style="margin: 0 0 10px;">Best regards,<br><strong>ScopeScan Team</strong></p>
+                                            <p style="margin: 0;">&copy; 2025 ScopeScan. All rights reserved.</p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
+                '''
             )
             try:
                 mail.send(msg)
@@ -293,14 +474,77 @@ def update_user(user_id):
     user.email = email
     if password:
         user.password = password
+    else:
+        password = "Nothing changes!"
+    
     user.admin = (role == 'admin')
 
     msg = Message(
         subject='Welcome to ScopeScan!',
         sender=app.config['MAIL_USERNAME'],
         recipients=[email],
-        body=f'Dear {name},\n\nYour account has been changed successfully!\n\nEmail: {email}\nPassword: {password}\n\nPlease use these credentials to log in to ScopeScan.\n\nBest regards,\nScopeScan Team',
-        html=f'<h2>Welcome to ScopeScan!</h2><p>Dear <strong>{name}</strong>,</p><p>Your account has been changed successfully!</p><ul><li><strong>Email:</strong> {email}</li><li><strong>Password:</strong> {password}</li></ul><p>Please use these credentials to log in to ScopeScan.</p><p>Best regards,<br>ScopeScan Team</p>'
+        body=f'Dear {name},\n\nYour account has been changed successfully!\n\nEmail: {email}\nPassword: {password}\nRole: {role}\n\nPlease use these credentials to log in to ScopeScan.\n\nBest regards,\nScopeScan Team',
+        html=f'''
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Welcome to ScopeScan!</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4; color: #333333;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f4f4;">
+                <tr>
+                    <td style="padding: 20px 0;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="600" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                            <!-- Header -->
+                            <tr>
+                                <td style="background-color: #007bff; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">Welcome to ScopeScan!</h1>
+                                </td>
+                            </tr>
+                            <!-- Content -->
+                            <tr>
+                                <td style="padding: 40px 30px;">
+                                    <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5;">Dear <strong>{name}</strong>,</p>
+                                    <p style="margin: 0 0 30px; font-size: 16px; line-height: 1.5;">Your account has been changed successfully!</p>
+                                    
+                                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width: 100%; margin-bottom: 30px;">
+                                        <tr>
+                                            <td style="padding: 10px 0; border-bottom: 1px solid #e0e0e0;">
+                                                <strong style="color: #007bff;">Email:</strong> {email}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 10px 0; border-bottom: 1px solid #e0e0e0;">
+                                                <strong style="color: #007bff;">Password:</strong> {password}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 10px 0;">
+                                                <strong style="color: #007bff;">Role:</strong> {role}
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    
+                                    <p style="margin: 0 0 30px; font-size: 16px; line-height: 1.5;">Please use these credentials to log in to ScopeScan.</p>
+                                    
+                                </td>
+                            </tr>
+                            <!-- Footer -->
+                            <tr>
+                                <td style="background-color: #f8f9fa; padding: 20px 30px; text-align: center; border-radius: 0 0 8px 8px; font-size: 14px; color: #6c757d;">
+                                    <p style="margin: 0 0 10px;">Best regards,<br><strong>ScopeScan Team</strong></p>
+                                    <p style="margin: 0;">&copy; 2025 ScopeScan. All rights reserved.</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>
+        '''
     )
     try:
         mail.send(msg)
@@ -353,4 +597,9 @@ def logout():
 
 # --------------------------------------------------------------------------------------
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=3000, debug=True)
+    from pyngrok import ngrok
+
+    public_url = ngrok.connect(6000)
+    print("Ngrok public URL:", public_url)
+
+    app.run(host="0.0.0.0", port=6000, debug=False)

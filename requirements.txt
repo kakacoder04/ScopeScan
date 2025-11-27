@@ -1,0 +1,18 @@
+Flask==3.0.3
+Flask-SQLAlchemy==3.1.1
+PyMySQL==1.1.0
+cryptography==41.0.7
+Werkzeug==3.0.3
+python-dotenv==1.0.0
+Flask-Mail==0.9.1
+tensorflow==2.16.1
+keras==3.3.3
+numpy==1.26.4
+gunicorn==21.2.0
+Pillow==10.1.0
+pyngrok==7.4.1
+opencv-python 
+opencv-contrib-python
+ultralytics
+
+# to install please use: pip install -r requirements.txt

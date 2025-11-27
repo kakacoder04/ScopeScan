@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Diagnosis | ScopeScan</title>
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/feather-icons"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.waves.min.js"></script>
+  <style>
+    video, canvas, img {
+      width: 100%;
+      border-radius: 0.75rem;
+      object-fit: cover;
+    }
+    .modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex; justify-content: center; align-items: center;
+      z-index: 1000;
+    }
+    #overlay-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="vanta-bg" class="fixed inset-0 -z-10"></div>
+
+  <div class="container mx-auto px-4 py-8">
+    <header class="flex justify-between items-center mb-12">
+      <div class="flex items-center space-x-2">
+        <i data-feather="activity" class="text-indigo-600 w-8 h-8"></i>
+        <h1 class="text-3xl font-bold text-indigo-800">ScopeScan</h1>
+      </div>
+
+      <div class="flex items-center space-x-6">
+        <a href="/dashboard"><i data-feather="camera" class="text-green-600"></i></a>
+        {% if user.admin %}
+        <a href="/admin"><i data-feather="grid" class="text-green-600"></i></a>
+        {% endif %}
+        <a href="/logout"><i data-feather="log-out" class="text-red-500"></i></a>
+      </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto">
+      <section class="bg-white rounded-xl shadow-lg p-6 mb-8 relative">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Live Camera Feed with Detection</h2>
+        <div class="relative">
+          <video id="camera-feed" autoplay playsinline class="border border-gray-200"></video>
+          <canvas id="overlay-canvas" class="absolute top-0 left-0"></canvas>
+        </div>
+        <div class="mt-4 flex justify-center space-x-4">
+          <button id="start-detection-btn" class="bg-indigo-600 text-white px-6 py-3 rounded-lg shadow hover:bg-indigo-700 flex items-center gap-2">
+            <i data-feather="zap"></i> <span>Start Detection</span>
+          </button>
+          <button id="stop-detection-btn" class="bg-red-600 text-white px-6 py-3 rounded-lg shadow hover:bg-red-700 flex items-center gap-2 hidden">
+            <i data-feather="stop-circle"></i> <span>Stop Detection</span>
+          </button>
+          <select id="fps-selector" class="hidden px-3 py-2 border rounded-lg" style="width: 120px;">
+            <option value="40">25 FPS</option>
+            <option value="20">50 FPS</option>
+            <option value="16">60 FPS</option>
+            <option value="8" selected>120 FPS</option>
+          </select>
+          <button id="capture-btn" class="bg-green-600 text-white px-6 py-3 rounded-lg shadow hover:bg-green-700 flex items-center gap-2">
+            <i data-feather="camera"></i> <span>Capture</span>
+          </button>
+        </div>
+      </section>
+
+      <section id="preview-section" class="hidden bg-white rounded-xl shadow-lg p-6 mb-8 text-center">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Captured Image</h2>
+        <img id="captured-image" class="rounded-lg mx-auto border border-gray-200 max-h-[400px] object-contain" alt="Captured preview">
+        <div class="flex justify-center space-x-4 mt-4">
+          <button id="retake-btn" class="bg-yellow-500 text-white px-6 py-3 rounded-lg shadow hover:bg-yellow-600 flex items-center gap-2">
+            <i data-feather="refresh-cw"></i> <span>Retake</span>
+          </button>
+          <button id="analyze-btn" class="bg-green-600 text-white px-6 py-3 rounded-lg shadow hover:bg-green-700 flex items-center gap-2">
+            <i data-feather="activity"></i> <span>Analyze</span>
+          </button>
+        </div>
+      </section>
+
+      <section id="diagnosis-section" class="hidden bg-white rounded-xl shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Diagnosis Results</h2>
+        <div class="space-y-4">
+          <img id="annotated-result-image" class="rounded-lg mx-auto border border-gray-200 max-h-[400px] object-contain" alt="Annotated Result" style="display: none;">
+          <div><h3 class="font-semibold text-gray-700">Condition:</h3><p id="condition-name" class="text-indigo-600 font-bold text-lg">-</p></div>
+          <div><h3 class="font-semibold text-gray-700">Confidence:</h3><p id="confidence" class="text-green-600 font-bold">-</p></div>
+          <div><h3 class="font-semibold text-gray-700">Description:</h3><p id="condition-description" class="text-gray-600">-</p></div>
+          <div><h3 class="font-semibold text-gray-700">Recommended Treatment:</h3><p id="treatment" class="text-gray-600">-</p></div>
+        </div>
+        <div class="flex justify-center mt-6">
+          <button id="add-patient-btn" class="bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 flex items-center gap-2">
+            <i data-feather="user-plus"></i> <span>Add Patient</span>
+          </button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="add-patient-modal" class="modal hidden">
+    <div class="bg-white rounded-lg shadow-xl p-6 w-96 relative">
+      <button id="close-modal" class="absolute top-3 right-3 text-gray-500 hover:text-gray-700">
+        <i data-feather="x"></i>
+      </button>
+      <h3 class="text-xl font-bold text-gray-800 mb-4">Add New Patient</h3>
+      <form id="add-patient-form" class="space-y-4">
+        <input type="text" id="new-patient-id" placeholder="Patient ID" class="w-full p-2 border rounded-lg" required>
+        <input type="text" id="new-patient-name" placeholder="Name" class="w-full p-2 border rounded-lg" required>
+        <input type="date" id="new-patient-date" class="w-full p-2 border rounded-lg" required>
+        <input type="text" id="new-patient-condition" class="w-full p-2 border rounded-lg" required>
+        <div class="flex justify-end space-x-3 pt-2">
+          <button type="button" id="cancel-add-patient" class="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400">Cancel</button>
+          <button type="submit" id="confirm-add-patient" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    VANTA.WAVES({
+      el: "#vanta-bg",
+      mouseControls: true,
+      touchControls: true,
+      gyroControls: false,
+      color: 0x6366f1,
+      shininess: 35,
+      waveHeight: 15,
+      waveSpeed: 0.5,
+      zoom: 0.75
+    });
+    feather.replace();
+
+    const video = document.getElementById('camera-feed');
+    const overlayCanvas = document.getElementById('overlay-canvas');
+    const ctx = overlayCanvas.getContext('2d');
+    const captureBtn = document.getElementById('capture-btn');
+    const previewSection = document.getElementById('preview-section');
+    const capturedImage = document.getElementById('captured-image');
+    const retakeBtn = document.getElementById('retake-btn');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const diagnosisSection = document.getElementById('diagnosis-section');
+    const annotatedResultImage = document.getElementById('annotated-result-image');
+    const conditionName = document.getElementById('condition-name');
+    const confidenceEl = document.getElementById('confidence');
+    const conditionDescription = document.getElementById('condition-description');
+    const treatment = document.getElementById('treatment');
+    const addPatientBtn = document.getElementById('add-patient-btn');
+    const addPatientModal = document.getElementById('add-patient-modal');
+    const closeModal = document.getElementById('close-modal');
+    const cancelAddPatient = document.getElementById('cancel-add-patient');
+    const confirmAddPatient = document.getElementById('confirm-add-patient');
+    const patientForm = document.getElementById('add-patient-form');
+    const startDetectionBtn = document.getElementById('start-detection-btn');
+    const stopDetectionBtn = document.getElementById('stop-detection-btn');
+    const fpsSelector = document.getElementById('fps-selector');
+
+    let stream = null, capturedBlob = null;
+    let detectionInterval = null;
+    let isDetecting = false;
+    let currentBoxes = [];
+    let rafId = null;
+    let lastDetectionTime = 0;
+    let detectionIntervalMs = 8; 
+    let isStaticDiagnosis = false; 
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 320 }, height: { ideal: 240 } },
+          audio: false
+        });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+          overlayCanvas.width = video.videoWidth;
+          overlayCanvas.height = video.videoHeight;
+          loop();
+        };
+      } catch (err) {
+        alert("Could not access the camera: " + err.message);
+      }
+    }
+
+    function loop() {
+      drawBoxes(currentBoxes);
+      rafId = requestAnimationFrame(loop);
+    }
+
+    function drawBoxes(boxes) {
+      ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      if (boxes.length === 0) return;
+
+      boxes.forEach(box => {
+        const x1 = box.x1 * (overlayCanvas.width / video.videoWidth);
+        const y1 = box.y1 * (overlayCanvas.height / video.videoHeight);
+        const width = (box.x2 - box.x1) * (overlayCanvas.width / video.videoWidth);
+        const height = (box.y2 - box.y1) * (overlayCanvas.height / video.videoHeight);
+        const conf = box.confidence.toFixed(2);
+
+        ctx.strokeStyle = '#007BFF';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x1, y1, width, height);
+
+        ctx.fillStyle = '#007BFF';
+        ctx.font = '16px Arial';
+        ctx.fillText(`${box.class} (${conf}%)`, x1, y1 - 5);
+      });
+    }
+
+    async function performLiveDetection() {
+      if (!isDetecting || !video.videoWidth || Date.now() - lastDetectionTime < detectionIntervalMs) return;
+
+      lastDetectionTime = Date.now();
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCanvas.width = video.videoWidth;
+      tempCanvas.height = video.videoHeight;
+      tempCtx.drawImage(video, 0, 0);
+
+      const frameBlob = await new Promise(resolve => tempCanvas.toBlob(resolve, 'image/jpeg', 0.6));
+      const formData = new FormData();
+      formData.append('image_file', frameBlob, 'frame.jpg');
+
+      try {
+        const res = await fetch('/analyze_video', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!data.error) {
+          currentBoxes = data.boxes || [];
+          if (!isStaticDiagnosis && data.condition && data.condition !== 'Normal') {
+            conditionName.textContent = data.condition;
+            confidenceEl.textContent = data.confidence;
+            conditionDescription.textContent = data.description || '-';
+            treatment.textContent = data.treatment || '-';
+            diagnosisSection.classList.remove('hidden');
+          } else if (!isStaticDiagnosis) {
+            conditionName.textContent = '-';
+            confidenceEl.textContent = '-';
+            conditionDescription.textContent = '-';
+            treatment.textContent = '-';
+            diagnosisSection.classList.add('hidden');
+          }
+        }
+      } catch (e) {
+        console.error('Detection error:', e);
+      }
+
+      detectionInterval = setTimeout(performLiveDetection, detectionIntervalMs);
+    }
+
+    startDetectionBtn.onclick = () => {
+      isDetecting = true;
+      startDetectionBtn.classList.add('hidden');
+      stopDetectionBtn.classList.remove('hidden');
+      fpsSelector.classList.remove('hidden');
+      lastDetectionTime = 0;
+      performLiveDetection();
+    };
+
+    stopDetectionBtn.onclick = () => {
+      isDetecting = false;
+      startDetectionBtn.classList.remove('hidden');
+      stopDetectionBtn.classList.add('hidden');
+      fpsSelector.classList.add('hidden');
+      ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      currentBoxes = [];
+      if (!isStaticDiagnosis) {  
+        conditionName.textContent = '-';
+        confidenceEl.textContent = '-';
+        conditionDescription.textContent = '-';
+        treatment.textContent = '-';
+        diagnosisSection.classList.add('hidden');
+      }
+      if (detectionInterval) clearTimeout(detectionInterval);
+    };
+
+    fpsSelector.onchange = (e) => {
+      detectionIntervalMs = parseInt(e.target.value);
+      console.log(`Detection interval: ${detectionIntervalMs}ms (~${Math.round(1000 / detectionIntervalMs)} FPS)`);
+    };
+
+    captureBtn.onclick = () => {
+      ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      currentBoxes = [];
+      if (!isStaticDiagnosis) {  
+        conditionName.textContent = '-';
+        confidenceEl.textContent = '-';
+        conditionDescription.textContent = '-';
+        treatment.textContent = '-';
+        diagnosisSection.classList.add('hidden');
+      }
+      isStaticDiagnosis = false; 
+
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCanvas.width = video.videoWidth;
+      tempCanvas.height = video.videoHeight;
+      tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+
+      tempCanvas.toBlob(blob => {
+        capturedBlob = blob;
+        capturedImage.src = URL.createObjectURL(blob);
+        previewSection.classList.remove('hidden');
+        annotatedResultImage.style.display = 'none';
+      }, 'image/jpeg', 0.8);
+    };
+
+    retakeBtn.onclick = () => {
+      previewSection.classList.add('hidden');
+      diagnosisSection.classList.add('hidden');
+      annotatedResultImage.style.display = 'none';
+      conditionName.textContent = '-';
+      confidenceEl.textContent = '-';
+      conditionDescription.textContent = '-';
+      treatment.textContent = '-';
+      isStaticDiagnosis = false;  
+      startCamera();
+    };
+
+    analyzeBtn.onclick = async () => {
+      if (!capturedBlob) return;
+      analyzeBtn.innerHTML = '<i data-feather="loader" class="animate-spin"></i> Analyzing...';
+      feather.replace();
+      const formData = new FormData();
+      formData.append('image_file', capturedBlob, 'capture.jpg');
+
+      try {
+        const res = await fetch('/analyze', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        conditionName.textContent = data.condition || '-';
+        confidenceEl.textContent = data.confidence || '-';
+        conditionDescription.textContent = data.description || '-';
+        treatment.textContent = data.treatment || '-';
+        
+        if (data.annotated_image) {
+          annotatedResultImage.src = data.annotated_image;
+          annotatedResultImage.style.display = 'block';
+        }
+        
+        diagnosisSection.classList.remove('hidden');
+        isStaticDiagnosis = true;  
+      } catch (e) {
+        alert("Error analyzing image: " + e.message);
+      }
+      analyzeBtn.innerHTML = '<i data-feather="activity"></i> Analyze';
+      feather.replace();
+    };
+
+    addPatientBtn.onclick = () => {
+      addPatientModal.classList.remove('hidden');
+      document.getElementById('new-patient-date').valueAsDate = new Date();
+      document.getElementById('new-patient-condition').value = conditionName.textContent;
+    };
+    closeModal.onclick = cancelAddPatient.onclick = () => addPatientModal.classList.add('hidden');
+
+    patientForm.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!capturedBlob) return alert("Please capture an image first.");
+
+      const id = document.getElementById('new-patient-id').value.trim();
+      const name = document.getElementById('new-patient-name').value.trim();
+      const date = document.getElementById('new-patient-date').value;
+      const condition = document.getElementById('new-patient-condition').value.trim();
+
+      if (!id || !name || !date || !condition) return alert("Please fill in all fields.");
+
+      const formData = new FormData();
+      formData.append('patient_id', id);
+      formData.append('name', name);
+      formData.append('date_added', date);
+      formData.append('condition', condition);
+      formData.append('image_file', capturedBlob, 'capture.jpg');
+
+      try {
+        const res = await fetch('/dashboard', { method: 'POST', body: formData });
+        if (res.redirected) window.location.href = '/video';
+        else alert('✅ Patient added successfully!');
+      } catch (err) {
+        alert("Error adding patient: " + err.message);
+      }
+
+      addPatientModal.classList.add('hidden');
+    };
+
+    window.addEventListener('DOMContentLoaded', startCamera);
+
+    window.addEventListener('beforeunload', () => {
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      if (rafId) cancelAnimationFrame(rafId);
+    });
+  </script>
+</body>
+</html>

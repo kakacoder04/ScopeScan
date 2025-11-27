@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnosis | ScopeScan</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.waves.min.js"></script>
+    <style>
+        .dropzone {
+            border: 2px dashed #6366F1;
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+        }
+        .dropzone.active {
+            border-color: #4F46E5;
+            background-color: #EEF2FF;
+        }
+        .diagnosis-card {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        .diagnosis-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .patient-card {
+            transition: all 0.3s ease;
+        }
+        .patient-card:hover {
+            transform: scale(1.02);
+        }
+        .zoom-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .zoom-image {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        .close-zoom {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 1001;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="vanta-bg" class="fixed inset-0 -z-10"></div>
+    <div class="container mx-auto px-4 py-8">
+        <header class="flex justify-between items-center mb-12">
+            <div class="flex items-center space-x-2">
+                <i data-feather="activity" class="text-indigo-600 w-8 h-8"></i>
+                <h1 class="text-3xl font-bold text-indigo-800">ScopeScan</h1>
+            </div>
+
+            <div class="flex items-center space-x-6">
+                <a href="/video"><i data-feather="video" class="text-green-600"></i></a>
+                {% if user.admin %}
+                <a href="/admin"><i data-feather="grid" class="text-green-600"></i></a>
+                {% endif %}
+                <a href="/logout"><i data-feather="log-out" class="text-red-500"></i></a>
+            </div>
+        </header>
+
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+            <div class="mb-4 p-4 rounded-md border-l-4 
+                        {% if category == 'error' %} 
+                            bg-red-50 border-red-500 text-red-700 
+                        {% elif category == 'success' %} 
+                            bg-green-50 border-green-500 text-green-700 
+                        {% elif category == 'warning' %} 
+                            bg-yellow-50 border-yellow-500 text-yellow-700 
+                        {% else %} 
+                            bg-blue-50 border-blue-500 text-blue-700 
+                        {% endif %}">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        {% if category == 'error' %}
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                            </svg>
+                        {% elif category == 'success' %}
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                        {% elif category == 'warning' %}
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                            </svg>
+                        {% else %}
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                            </svg>
+                        {% endif %}
+                        <p>{{ message }}</p>
+                    </div>
+                    <button type="button" class="text-gray-500 hover:text-gray-700 focus:outline-none" onclick="this.parentElement.parentElement.remove()">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        {% endfor %}
+
+        <main class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <section class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Upload Endoscopy Image</h2>
+                <div id="dropzone" class="dropzone p-8 mb-6 flex flex-col items-center justify-center cursor-pointer h-96 relative">
+                    <i data-feather="upload" class="w-12 h-12 text-indigo-500 mb-4"></i>
+                    <div id="image-preview" class="hidden w-full h-full mb-4">
+                        <img id="preview-image" src="" alt="Preview" class="w-full h-full object-contain mx-auto rounded-lg">
+                    </div>
+                    <div id="upload-instructions" class="text-center">
+                        <p class="text-gray-600 mb-2">Drag & drop your endoscopy image here</p>
+                        <p class="text-gray-500 text-sm mb-4">or</p>
+                        <label for="file-upload" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition cursor-pointer">
+                            Browse Files
+                        </label>
+                        <input id="file-upload" type="file" accept="image/*" class="hidden" />
+                    </div>
+                    <button id="reset-image" class="absolute top-4 right-4 hidden bg-white text-indigo-600 p-2 rounded-full shadow-md hover:bg-indigo-100 transition">
+                        <i data-feather="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <button id="analyze-btn" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition flex items-center justify-center space-x-2">
+                    <i data-feather="zap" class="w-5 h-5"></i>
+                    <span>Analyze Image</span>
+                </button>
+            </section>
+
+            <section class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Diagnosis Results</h2>
+                
+                <div id="diagnosis-placeholder" class="text-center py-12">
+                    <i data-feather="image" class="w-12 h-12 mx-auto text-gray-400 mb-4"></i>
+                    <p class="text-gray-500">Upload an endoscopy image to get diagnosis results</p>
+                </div>
+
+                <div id="diagnosis-results" class="hidden">
+                    <div class="diagnosis-card bg-indigo-50 border border-indigo-100 rounded-lg p-4 mb-6">
+                        <div class="flex items-start mb-4">
+                            <div class="flex-shrink-0 mr-4 cursor-pointer">
+                                <img id="uploaded-image" src="" alt="Uploaded Endoscopy Image" class="w-24 h-24 object-cover rounded-lg transition-transform hover:scale-110">
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-800">Condition Detected</h3>
+                                <p id="condition-name" class="text-xl font-bold text-indigo-700">-</p>
+                                <p class="text-gray-600 text-sm">Confidence: <span id="confidence" class="font-medium">-</span></p>
+                            </div>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg">
+                            <h4 class="font-semibold text-gray-700 mb-2">Description</h4>
+                            <p id="condition-description" class="text-gray-600">No description available.</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Recommended Treatment</h3>
+                        <div class="bg-white p-4 rounded-lg border border-gray-200">
+                            <p id="treatment" class="text-gray-600">No treatment recommendation available.</p>
+                        </div>
+                    </div>
+
+                    <img id="annotated-result-image" class="rounded-lg mx-auto border border-gray-200 max-h-[400px] object-contain mb-6" alt="Annotated Result" style="display: none;">
+
+                    <div class="flex space-x-3">
+                        <button class="bg-white border border-indigo-600 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-50 transition flex items-center space-x-2">
+                            <i data-feather="download"></i>
+                            <span>Save Report</span>
+                        </button>
+                        <button class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition flex items-center space-x-2">
+                            <i data-feather="printer"></i>
+                            <span>Print</span>
+                        </button>
+                        <button id="add-patient-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition flex items-center space-x-2">
+                            <i data-feather="user-plus"></i>
+                            <span>Add Patient</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="zoom-modal" class="zoom-modal hidden">
+        <span class="close-zoom" id="close-zoom">&times;</span>
+        <img id="zoom-image" class="zoom-image" src="" alt="Zoomed Image">
+    </div>
+
+    <div id="add-patient-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div class="flex justify-between items-center border-b border-gray-200 px-6 py-4">
+                <h3 class="text-xl font-bold text-gray-800">Add New Patient</h3>
+                <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+                    <i data-feather="x"></i>
+                </button>
+            </div>
+            <form id="add-patient-form">
+                <div class="p-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="new-patient-id" class="block text-sm font-medium text-gray-700 mb-1">Patient ID</label>
+                            <input type="text" id="new-patient-id" name="patient_id" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                        </div>
+                        <div>
+                            <label for="new-patient-name" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                            <input type="text" id="new-patient-name" name="name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                        </div>
+                        <div>
+                            <label for="new-patient-date" class="block text-sm font-medium text-gray-700 mb-1">Date Added</label>
+                            <input type="date" id="new-patient-date" name="date_added" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label for="new-patient-condition" class="block text-sm font-medium text-gray-700 mb-1">Condition Type</label>
+                            <select id="new-patient-condition" name="condition" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="">Select Condition</option>
+                                <option value="Normal">Normal</option>
+                                <option value="Ulcerative Colitis">Ulcerative Colitis</option>
+                                <option value="Polyp">Polyp</option>
+                                <option value="Esophagitis">Esophagitis</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            <div class="flex justify-end space-x-3 px-6 py-4 border-t border-gray-200">
+                <button type="button" id="cancel-add-patient" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button type="button" id="confirm-add-patient" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Add Patient</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        VANTA.WAVES({
+            el: "#vanta-bg",
+            mouseControls: true,
+            touchControls: true,
+            gyroControls: false,
+            minHeight: 200.00,
+            minWidth: 200.00,
+            scale: 1.00,
+            scaleMobile: 1.00,
+            color: 0x6366f1,
+            shininess: 35.00,
+            waveHeight: 15.00,
+            waveSpeed: 0.50,
+            zoom: 0.75
+        });
+
+        feather.replace();
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('file-upload');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const diagnosisPlaceholder = document.getElementById('diagnosis-placeholder');
+        const diagnosisResults = document.getElementById('diagnosis-results');
+        const uploadedImage = document.getElementById('uploaded-image');
+        const previewImage = document.getElementById('preview-image');
+        const conditionName = document.getElementById('condition-name');
+        const confidence = document.getElementById('confidence');
+        const conditionDescription = document.getElementById('condition-description');
+        const treatment = document.getElementById('treatment');
+        const annotatedResultImage = document.getElementById('annotated-result-image');
+        const resetImageBtn = document.getElementById('reset-image');
+        let selectedFile = null;
+        let imageUrl = null;
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('active');
+        }
+
+        function unhighlight(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('active');
+        }
+
+        dropzone.addEventListener('drop', handleDrop, false);
+        dropzone.addEventListener('click', (e) => {
+            if (e.target === dropzone) {
+                fileInput.click();
+            }
+        }, false);
+        fileInput.addEventListener('change', handleFiles, false);
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles({ target: { files } });
+        }
+        function handleFiles(e) {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+            
+            const file = files[0];
+            if (!file.type.startsWith('image/')) {
+                alert('Please upload an image file.');
+                return;
+            }
+            selectedFile = file;
+            imageUrl = URL.createObjectURL(file);
+
+            fileInput.value = '';
+            
+            const imagePreview = document.getElementById('image-preview');
+            const uploadInstructions = document.getElementById('upload-instructions');
+            
+            previewImage.src = imageUrl;
+            imagePreview.classList.remove('hidden');
+            uploadInstructions.classList.add('hidden');
+            resetImageBtn.classList.remove('hidden');
+            
+            uploadedImage.src = imageUrl;
+        }
+
+        const zoomModal = document.getElementById('zoom-modal');
+        const zoomImage = document.getElementById('zoom-image');
+        const closeZoom = document.getElementById('close-zoom');
+
+        uploadedImage.addEventListener('click', () => {
+            if (uploadedImage.src && uploadedImage.src !== '') {
+                zoomImage.src = uploadedImage.src;
+                zoomModal.classList.remove('hidden');
+            }
+        });
+
+        closeZoom.addEventListener('click', () => {
+            zoomModal.classList.add('hidden');
+        });
+
+        zoomModal.addEventListener('click', (e) => {
+            if (e.target === zoomModal) {
+                zoomModal.classList.add('hidden');
+            }
+        });
+
+        const addPatientBtn = document.getElementById('add-patient-btn');
+        const addPatientModal = document.getElementById('add-patient-modal');
+        const closeModalBtn = document.getElementById('close-modal');
+        const cancelAddPatientBtn = document.getElementById('cancel-add-patient');
+        const confirmAddPatientBtn = document.getElementById('confirm-add-patient');
+        const addPatientForm = document.getElementById('add-patient-form');
+
+        addPatientBtn.addEventListener('click', () => {
+            if (!selectedFile) {
+                alert('Please upload an image first.');
+                return;
+            }
+            addPatientModal.classList.remove('hidden');
+            document.getElementById('new-patient-date').valueAsDate = new Date();
+            if (conditionName.textContent !== '-') {
+                document.getElementById('new-patient-condition').value = conditionName.textContent;
+            }
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            addPatientModal.classList.add('hidden');
+        });
+
+        cancelAddPatientBtn.addEventListener('click', () => {
+            addPatientModal.classList.add('hidden');
+        });
+
+        confirmAddPatientBtn.addEventListener('click', () => {
+            const patient_id = document.getElementById('new-patient-id').value.trim();
+            const name = document.getElementById('new-patient-name').value.trim();
+            const date_added = document.getElementById('new-patient-date').value;
+            const condition = document.getElementById('new-patient-condition').value;
+
+            if (!patient_id || !name || !date_added || !condition || !selectedFile) {
+                alert('Please fill in all fields.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('patient_id', patient_id);
+            formData.append('name', name);
+            formData.append('date_added', date_added);
+            formData.append('condition', condition);
+            formData.append('image_file', selectedFile);
+
+            fetch('/dashboard', {
+                method: 'POST',
+                body: formData
+            }).then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    alert('Error adding patient. Please try again.');
+                }
+            }).catch(error => {
+                alert('Error: ' + error.message);
+            });
+        });
+
+        analyzeBtn.addEventListener('click', () => {
+            if (!selectedFile) {
+                alert('Please upload an image first.');
+                return;
+            }
+            diagnosisPlaceholder.classList.add('hidden');
+            diagnosisResults.classList.remove('hidden');
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<i data-feather="loader" class="animate-spin w-5 h-5"></i><span>Analyzing...</span>';
+            feather.replace();
+            
+            uploadedImage.src = imageUrl;
+            
+            const formData = new FormData();
+            formData.append('image_file', selectedFile);
+
+            fetch('/analyze', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    diagnosisResults.classList.add('hidden');
+                    diagnosisPlaceholder.classList.remove('hidden');
+                } else {
+                    conditionName.textContent = data.condition;
+                    confidence.textContent = data.confidence;
+                    conditionDescription.textContent = data.description;
+                    treatment.textContent = data.treatment;
+                    uploadedImage.src = imageUrl;
+                    
+                    if (data.annotated_image) {
+                      annotatedResultImage.src = data.annotated_image;
+                      annotatedResultImage.style.display = 'block';
+                    }
+                }
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = '<i data-feather="zap" class="w-5 h-5"></i><span>Analyze Image</span>';
+                feather.replace();
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+                diagnosisResults.classList.add('hidden');
+                diagnosisPlaceholder.classList.remove('hidden');
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = '<i data-feather="zap" class="w-5 h-5"></i><span>Analyze Image</span>';
+                feather.replace();
+            });
+        });
+        resetImageBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetImage();
+        });
+
+        function resetImage() {
+            if (imageUrl) {
+                URL.revokeObjectURL(imageUrl);
+                imageUrl = null;
+            }
+            
+            fileInput.value = '';
+            selectedFile = null;
+            
+            const imagePreview = document.getElementById('image-preview');
+            const uploadInstructions = document.getElementById('upload-instructions');
+            
+            imagePreview.classList.add('hidden');
+            uploadInstructions.classList.remove('hidden');
+            
+            resetImageBtn.classList.add('hidden');
+            
+            diagnosisPlaceholder.classList.remove('hidden');
+            diagnosisResults.classList.add('hidden');
+            annotatedResultImage.style.display = 'none';
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (imageUrl) {
+                URL.revokeObjectURL(imageUrl);
+            }
+        });
+</script>
+</body>
+</html>
+</DOCUMENT>
