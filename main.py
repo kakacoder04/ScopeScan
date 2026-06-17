@@ -14,7 +14,7 @@ import base64
 
 # --------------------------------------------------------------------------------------
 app = Flask(__name__)
-app.secret_key = 'kakadziuhtrangquadi'
+app.secret_key = 'your-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/endoscan'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -26,8 +26,8 @@ model = YOLO("./model/best_50_epochs.pt")
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'kakawiner04@gmail.com'
-app.config['MAIL_PASSWORD'] = 'qtti isvz tqoa lftb'
+app.config['MAIL_USERNAME'] = 'your-email'
+app.config['MAIL_PASSWORD'] = 'your-password'
 mail = Mail(app)
 
 # --------------------------------------------------------------------------------------
